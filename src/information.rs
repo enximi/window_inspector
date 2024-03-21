@@ -35,7 +35,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     GetWindowTextW, IsWindow, GWL_EXSTYLE, WS_EX_TOPMOST,
 };
 
-use crate::error::Error;
+use crate::error::{Error, ErrorCode};
 
 // # 句柄
 
@@ -126,8 +126,8 @@ pub fn get_window_class(window_handle: isize) -> Result<String, Error> {
     match unsafe { GetClassNameW(HWND(window_handle), &mut buffer) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetClassNameW".to_string(),
+            error_code: ErrorCode { code: None },
             message: format!("window handle: {}", window_handle),
-            error_code: None,
         }),
         n => Ok(String::from_utf16_lossy(&buffer[..n as usize])),
     }
@@ -142,8 +142,8 @@ pub fn get_window_title(window_handle: isize) -> Result<String, Error> {
     match unsafe { GetWindowTextW(HWND(window_handle), &mut buffer) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetWindowTextW".to_string(),
+            error_code: ErrorCode { code: None },
             message: format!("window handle: {}", window_handle),
-            error_code: None,
         }),
         n => Ok(String::from_utf16_lossy(&buffer[..n as usize])),
     }
@@ -168,8 +168,10 @@ pub fn get_window_xywh_include_shadow(window_handle: isize) -> Result<(i32, i32,
         )),
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "GetWindowRect".to_string(),
+            error_code: ErrorCode {
+                code: Some(e.code().0),
+            },
             message: format!("window handle: {}", window_handle),
-            error_code: Some(e.code().0),
         }),
     }
 }
@@ -198,8 +200,10 @@ pub fn get_window_xywh_exclude_shadow(window_handle: isize) -> Result<(i32, i32,
         )),
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "DwmGetWindowAttribute".to_string(),
+            error_code: ErrorCode {
+                code: Some(e.code().0),
+            },
             message: format!("window handle: {}", window_handle),
-            error_code: Some(e.code().0),
         }),
     }
 }
@@ -231,8 +235,10 @@ pub fn get_client_wh(window_handle: isize) -> Result<(u32, u32), Error> {
         )),
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "GetClientRect".to_string(),
+            error_code: ErrorCode {
+                code: Some(e.code().0),
+            },
             message: format!("window handle: {}", window_handle),
-            error_code: Some(e.code().0),
         }),
     }
 }
@@ -256,8 +262,8 @@ pub fn get_window_top_most(window_handle: isize) -> Result<bool, Error> {
     match unsafe { GetWindowLongW(HWND(window_handle), GWL_EXSTYLE) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetWindowLongW".to_string(),
+            error_code: ErrorCode { code: None },
             message: format!("window handle: {}", window_handle),
-            error_code: None,
         }),
         n => Ok((n as u32 & WS_EX_TOPMOST.0) != 0),
     }

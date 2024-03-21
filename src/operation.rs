@@ -15,7 +15,7 @@ use windows::Win32::UI::WindowsAndMessaging::{
     SWP_NOSIZE,
 };
 
-use crate::error::Error;
+use crate::error::{Error, ErrorCode};
 use crate::information::{get_window_top_most, is_window_exist};
 
 // # 前台
@@ -29,8 +29,8 @@ pub fn set_foreground_window(window_handle: isize) -> Result<(), Error> {
         if !SetForegroundWindow(HWND(window_handle)).as_bool() {
             return Err(Error::Win32ApiFailed {
                 api_name: "SetForegroundWindow".to_string(),
+                error_code: ErrorCode { code: None },
                 message: format!("window handle: {}", window_handle),
-                error_code: None,
             });
         }
     }
@@ -54,8 +54,10 @@ pub fn move_window_to_xywh(
         if let Err(e) = MoveWindow(HWND(window_handle), x, y, width as i32, height as i32, true) {
             return Err(Error::Win32ApiFailed {
                 api_name: "MoveWindow".to_string(),
+                error_code: ErrorCode {
+                    code: Some(e.code().0),
+                },
                 message: format!("window handle: {}", window_handle),
-                error_code: Some(e.code().0),
             });
         }
     }
@@ -85,8 +87,10 @@ fn set_window_top_most_status(window_handle: isize, is_top_most: bool) -> Result
         ) {
             return Err(Error::Win32ApiFailed {
                 api_name: "SetWindowPos".to_string(),
+                error_code: ErrorCode {
+                    code: Some(e.code().0),
+                },
                 message: format!("window handle: {}", window_handle),
-                error_code: Some(e.code().0),
             });
         }
     }
