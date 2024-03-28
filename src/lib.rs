@@ -19,6 +19,10 @@
 //! - 获取客户区位置尺寸，相对于屏幕。[`get_client_xywh`]
 //! ## 置顶
 //! - 获取窗口置顶状态。[`get_window_top_most`]
+//! ## 进程
+//! - 获取窗口所属进程。[`get_window_process`]
+//! - 获取进程路径。[`get_process_path`]
+//! - 获取窗口所属进程的路径。[`get_window_process_path`]
 //! # 简单操作窗口
 //! ## 前台
 //! - 设置前台窗口。[`set_foreground_window`]

@@ -19,6 +19,10 @@
 //! - 获取客户区位置尺寸，相对于屏幕。[`get_client_xywh`]
 //! ## 置顶
 //! - 获取窗口置顶状态。[`get_window_top_most`]
+//! ## 进程
+//! - 获取窗口所属进程。[`get_window_process`]
+//! - 获取进程路径。[`get_process_path`]
+//! - 获取窗口所属进程的路径。[`get_window_process_path`]
 
 use std::collections::HashMap;
 use std::mem::size_of;
@@ -26,10 +30,15 @@ use std::ptr::null;
 use std::sync::Mutex;
 
 use lazy_static::lazy_static;
-use windows::core::PCWSTR;
+use windows::core::{PCWSTR, PWSTR};
 use windows::Win32::Foundation::{HWND, POINT, RECT};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::ClientToScreen;
+use windows::Win32::System::Threading::QueryFullProcessImageNameW;
+use windows::Win32::System::Threading::PROCESS_QUERY_INFORMATION;
+use windows::Win32::System::Threading::PROCESS_VM_READ;
+use windows::Win32::System::Threading::{OpenProcess, PROCESS_NAME_FORMAT};
+use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 use windows::Win32::UI::WindowsAndMessaging::{
     FindWindowW, GetClassNameW, GetClientRect, GetForegroundWindow, GetWindowLongW, GetWindowRect,
     GetWindowTextW, IsWindow, GWL_EXSTYLE, WS_EX_TOPMOST,
@@ -267,4 +276,63 @@ pub fn get_window_top_most(window_handle: isize) -> Result<bool, Error> {
         }),
         n => Ok((n as u32 & WS_EX_TOPMOST.0) != 0),
     }
+}
+
+// # 进程
+
+/// 获取窗口所属进程。
+pub fn get_window_process(window_handle: isize) -> Result<u32, Error> {
+    let mut process_id = 0;
+    if unsafe { GetWindowThreadProcessId(HWND(window_handle), Some(&mut process_id)) } == 0 {
+        return Err(Error::Win32ApiFailed {
+            api_name: "GetWindowThreadProcessId".to_string(),
+            error_code: ErrorCode { code: None },
+            message: format!("window handle: {}", window_handle),
+        });
+    }
+    Ok(process_id)
+}
+
+/// 获取进程路径。
+pub fn get_process_path(process_id: u32) -> Result<String, Error> {
+    let process_handle = unsafe {
+        OpenProcess(
+            PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
+            false,
+            process_id,
+        )
+    }
+    .map_err(|e| Error::Win32ApiFailed {
+        api_name: "OpenProcess".to_string(),
+        error_code: ErrorCode {
+            code: Some(e.code().0),
+        },
+        message: format!("process id: 0x{:X}", process_id),
+    })?;
+
+    let mut buffer = [0u16; 1024];
+    let pwstr = PWSTR(buffer.as_mut_ptr());
+    let mut buffer_size = 1024;
+    match unsafe {
+        QueryFullProcessImageNameW(
+            process_handle,
+            PROCESS_NAME_FORMAT(0),
+            pwstr,
+            &mut buffer_size,
+        )
+    } {
+        Ok(_) => Ok(unsafe { pwstr.to_string() }.unwrap()),
+        Err(e) => Err(Error::Win32ApiFailed {
+            api_name: "QueryFullProcessImageNameW".to_string(),
+            error_code: ErrorCode {
+                code: Some(e.code().0),
+            },
+            message: format!("process id: {}", process_id),
+        }),
+    }
+}
+
+/// 获取窗口所属进程的路径。
+pub fn get_window_process_path(window_handle: isize) -> Result<String, Error> {
+    get_process_path(get_window_process(window_handle)?)
 }
