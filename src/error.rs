@@ -19,7 +19,7 @@ pub enum Error {
 
 #[derive(Debug)]
 pub struct ErrorCode {
-    pub code: Option<i32>,
+    pub code: Option<u32>,
 }
 
 impl std::fmt::Display for ErrorCode {
@@ -31,8 +31,8 @@ impl std::fmt::Display for ErrorCode {
     }
 }
 
-impl From<i32> for ErrorCode {
-    fn from(code: i32) -> Self {
+impl From<u32> for ErrorCode {
+    fn from(code: u32) -> Self {
         ErrorCode { code: Some(code) }
     }
 }

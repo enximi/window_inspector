@@ -25,15 +25,14 @@ pub fn set_foreground_window(window_handle: isize) -> Result<(), Error> {
     if !is_window_exist(window_handle) {
         return Err(Error::WindowNotExist { window_handle });
     }
-    unsafe {
-        if !SetForegroundWindow(HWND(window_handle)).as_bool() {
-            return Err(Error::Win32ApiFailed {
-                api_name: "SetForegroundWindow".to_string(),
-                error_code: ErrorCode { code: None },
-                message: format!("window handle: {}", window_handle),
-            });
-        }
+    if !unsafe { SetForegroundWindow(HWND(window_handle)) }.as_bool() {
+        return Err(Error::Win32ApiFailed {
+            api_name: "SetForegroundWindow".to_string(),
+            error_code: ErrorCode { code: None },
+            message: format!("window handle: 0x{:X}", window_handle),
+        });
     }
+
     Ok(())
 }
 
@@ -55,9 +54,9 @@ pub fn move_window_to_xywh(
             return Err(Error::Win32ApiFailed {
                 api_name: "MoveWindow".to_string(),
                 error_code: ErrorCode {
-                    code: Some(e.code().0),
+                    code: Some(e.code().0 as u32),
                 },
-                message: format!("window handle: {}", window_handle),
+                message: format!("window handle: 0x{:X}", window_handle),
             });
         }
     }
@@ -88,9 +87,9 @@ fn set_window_top_most_status(window_handle: isize, is_top_most: bool) -> Result
             return Err(Error::Win32ApiFailed {
                 api_name: "SetWindowPos".to_string(),
                 error_code: ErrorCode {
-                    code: Some(e.code().0),
+                    code: Some(e.code().0 as u32),
                 },
-                message: format!("window handle: {}", window_handle),
+                message: format!("window handle: 0x{:X}", window_handle),
             });
         }
     }

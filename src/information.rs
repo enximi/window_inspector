@@ -31,7 +31,7 @@ use std::sync::Mutex;
 
 use lazy_static::lazy_static;
 use windows::core::{PCWSTR, PWSTR};
-use windows::Win32::Foundation::{HWND, POINT, RECT};
+use windows::Win32::Foundation::{GetLastError, HWND, POINT, RECT};
 use windows::Win32::Graphics::Dwm::{DwmGetWindowAttribute, DWMWA_EXTENDED_FRAME_BOUNDS};
 use windows::Win32::Graphics::Gdi::ClientToScreen;
 use windows::Win32::System::Threading::QueryFullProcessImageNameW;
@@ -135,8 +135,10 @@ pub fn get_window_class(window_handle: isize) -> Result<String, Error> {
     match unsafe { GetClassNameW(HWND(window_handle), &mut buffer) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetClassNameW".to_string(),
-            error_code: ErrorCode { code: None },
-            message: format!("window handle: {}", window_handle),
+            error_code: ErrorCode {
+                code: Some(unsafe { GetLastError() }.0),
+            },
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
         n => Ok(String::from_utf16_lossy(&buffer[..n as usize])),
     }
@@ -151,8 +153,10 @@ pub fn get_window_title(window_handle: isize) -> Result<String, Error> {
     match unsafe { GetWindowTextW(HWND(window_handle), &mut buffer) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetWindowTextW".to_string(),
-            error_code: ErrorCode { code: None },
-            message: format!("window handle: {}", window_handle),
+            error_code: ErrorCode {
+                code: Some(unsafe { GetLastError() }.0),
+            },
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
         n => Ok(String::from_utf16_lossy(&buffer[..n as usize])),
     }
@@ -178,9 +182,9 @@ pub fn get_window_xywh_include_shadow(window_handle: isize) -> Result<(i32, i32,
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "GetWindowRect".to_string(),
             error_code: ErrorCode {
-                code: Some(e.code().0),
+                code: Some(e.code().0 as u32),
             },
-            message: format!("window handle: {}", window_handle),
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
     }
 }
@@ -210,9 +214,9 @@ pub fn get_window_xywh_exclude_shadow(window_handle: isize) -> Result<(i32, i32,
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "DwmGetWindowAttribute".to_string(),
             error_code: ErrorCode {
-                code: Some(e.code().0),
+                code: Some(e.code().0 as u32),
             },
-            message: format!("window handle: {}", window_handle),
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
     }
 }
@@ -245,9 +249,9 @@ pub fn get_client_wh(window_handle: isize) -> Result<(u32, u32), Error> {
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "GetClientRect".to_string(),
             error_code: ErrorCode {
-                code: Some(e.code().0),
+                code: Some(e.code().0 as u32),
             },
-            message: format!("window handle: {}", window_handle),
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
     }
 }
@@ -271,8 +275,10 @@ pub fn get_window_top_most(window_handle: isize) -> Result<bool, Error> {
     match unsafe { GetWindowLongW(HWND(window_handle), GWL_EXSTYLE) } {
         0 => Err(Error::Win32ApiFailed {
             api_name: "GetWindowLongW".to_string(),
-            error_code: ErrorCode { code: None },
-            message: format!("window handle: {}", window_handle),
+            error_code: ErrorCode {
+                code: Some(unsafe { GetLastError() }.0),
+            },
+            message: format!("window handle: 0x{:X}", window_handle),
         }),
         n => Ok((n as u32 & WS_EX_TOPMOST.0) != 0),
     }
@@ -286,8 +292,10 @@ pub fn get_window_process(window_handle: isize) -> Result<u32, Error> {
     if unsafe { GetWindowThreadProcessId(HWND(window_handle), Some(&mut process_id)) } == 0 {
         return Err(Error::Win32ApiFailed {
             api_name: "GetWindowThreadProcessId".to_string(),
-            error_code: ErrorCode { code: None },
-            message: format!("window handle: {}", window_handle),
+            error_code: ErrorCode {
+                code: Some(unsafe { GetLastError() }.0),
+            },
+            message: format!("window handle: 0x{:X}", window_handle),
         });
     }
     Ok(process_id)
@@ -305,7 +313,7 @@ pub fn get_process_path(process_id: u32) -> Result<String, Error> {
     .map_err(|e| Error::Win32ApiFailed {
         api_name: "OpenProcess".to_string(),
         error_code: ErrorCode {
-            code: Some(e.code().0),
+            code: Some(e.code().0 as u32),
         },
         message: format!("process id: 0x{:X}", process_id),
     })?;
@@ -325,7 +333,7 @@ pub fn get_process_path(process_id: u32) -> Result<String, Error> {
         Err(e) => Err(Error::Win32ApiFailed {
             api_name: "QueryFullProcessImageNameW".to_string(),
             error_code: ErrorCode {
-                code: Some(e.code().0),
+                code: Some(e.code().0 as u32),
             },
             message: format!("process id: {}", process_id),
         }),
