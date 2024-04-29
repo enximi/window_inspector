@@ -69,7 +69,13 @@ pub fn get_client_xy(hwnd: isize) -> Result<(i32, i32), Error> {
         return Err(Error::WindowNotExist { hwnd });
     }
     let mut point = POINT::default();
-    unsafe { ClientToScreen(HWND(hwnd), &mut point) };
+    if !unsafe { ClientToScreen(HWND(hwnd), &mut point) }.as_bool() {
+        return Err(Error::Win32ApiFailed {
+            api_name: "ClientToScreen".to_string(),
+            error_code: None.into(),
+            message: format!("hwnd: 0x{:X}, x: {}, y: {}", hwnd, point.x, point.y),
+        });
+    }
     Ok((point.x, point.y))
 }
 

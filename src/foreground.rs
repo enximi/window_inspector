@@ -1,7 +1,8 @@
-use crate::exist::is_window_exist;
 use windows::Win32::Foundation::HWND;
 use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, SetForegroundWindow};
+
 use crate::error::Error;
+use crate::exist::is_window_exist;
 
 /// 获取前台窗口句柄。
 pub fn get_foreground_hwnd() -> isize {
