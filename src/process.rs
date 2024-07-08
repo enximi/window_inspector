@@ -1,28 +1,31 @@
+use std::ffi::c_void;
+
 use windows::core::PWSTR;
-use windows::Win32::Foundation::{GetLastError, HWND};
-use windows::Win32::System::Threading::{
-    OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_FORMAT, PROCESS_QUERY_INFORMATION,
-    PROCESS_VM_READ,
-};
+use windows::Win32::Foundation::GetLastError;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::System::Threading::OpenProcess;
+use windows::Win32::System::Threading::QueryFullProcessImageNameW;
+use windows::Win32::System::Threading::PROCESS_NAME_FORMAT;
+use windows::Win32::System::Threading::PROCESS_QUERY_INFORMATION;
+use windows::Win32::System::Threading::PROCESS_VM_READ;
 use windows::Win32::UI::WindowsAndMessaging::GetWindowThreadProcessId;
 
-use crate::error::Error;
+use crate::error::WindowInspectorError;
+use crate::result::Result;
 
 /// 获取窗口所属进程。
-pub fn get_window_process(hwnd: isize) -> Result<u32, Error> {
+pub fn get_window_process(hwnd: isize) -> Result<u32> {
     let mut process_id = 0;
-    if unsafe { GetWindowThreadProcessId(HWND(hwnd), Some(&mut process_id)) } == 0 {
-        return Err(Error::Win32ApiFailed {
-            api_name: "GetWindowThreadProcessId".to_string(),
-            error_code: unsafe { GetLastError() }.0.into(),
-            message: format!("hwnd: 0x{:X}", hwnd),
+    if unsafe { GetWindowThreadProcessId(HWND(hwnd as *mut c_void), Some(&mut process_id)) } == 0 {
+        return Err(WindowInspectorError::GetWindowThreadProcessIdFailed {
+            error_code: unsafe { GetLastError() }.0,
         });
     }
     Ok(process_id)
 }
 
 /// 获取进程路径。
-pub fn get_process_path(process_id: u32) -> Result<String, Error> {
+pub fn get_process_path(process_id: u32) -> Result<String> {
     let process_handle = unsafe {
         OpenProcess(
             PROCESS_QUERY_INFORMATION | PROCESS_VM_READ,
@@ -30,10 +33,9 @@ pub fn get_process_path(process_id: u32) -> Result<String, Error> {
             process_id,
         )
     }
-    .map_err(|e| Error::Win32ApiFailed {
-        api_name: "OpenProcess".to_string(),
-        error_code: (e.code().0 as u32).into(),
-        message: format!("process id: 0x{:X}", process_id),
+    .map_err(|e| WindowInspectorError::OpenProcessFailed {
+        process_id,
+        error_message: format!("{}", e),
     })?;
 
     let mut buffer = [0u16; 1024];
@@ -48,15 +50,14 @@ pub fn get_process_path(process_id: u32) -> Result<String, Error> {
         )
     } {
         Ok(_) => Ok(unsafe { pwstr.to_string() }.unwrap()),
-        Err(e) => Err(Error::Win32ApiFailed {
-            api_name: "QueryFullProcessImageNameW".to_string(),
-            error_code: (e.code().0 as u32).into(),
-            message: format!("process id: {}", process_id),
+        Err(e) => Err(WindowInspectorError::QueryFullProcessImageNameWFailed {
+            process_id,
+            error_message: format!("{}", e),
         }),
     }
 }
 
 /// 获取窗口所属进程的路径。
-pub fn get_window_process_path(hwnd: isize) -> Result<String, Error> {
+pub fn get_window_process_path(hwnd: isize) -> Result<String> {
     get_process_path(get_window_process(hwnd)?)
 }

@@ -1,35 +1,45 @@
-use windows::Win32::Foundation::{GetLastError, HWND};
-use windows::Win32::UI::WindowsAndMessaging::{
-    GetWindowLongW, SetWindowPos, GWL_EXSTYLE, HWND_NOTOPMOST, HWND_TOPMOST, SWP_NOMOVE,
-    SWP_NOSIZE, WS_EX_TOPMOST,
-};
+use std::ffi::c_void;
 
-use crate::error::Error;
+use windows::Win32::Foundation::GetLastError;
+use windows::Win32::Foundation::HWND;
+use windows::Win32::UI::WindowsAndMessaging::GetWindowLongW;
+use windows::Win32::UI::WindowsAndMessaging::SetWindowPos;
+use windows::Win32::UI::WindowsAndMessaging::GWL_EXSTYLE;
+use windows::Win32::UI::WindowsAndMessaging::HWND_NOTOPMOST;
+use windows::Win32::UI::WindowsAndMessaging::HWND_TOPMOST;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOMOVE;
+use windows::Win32::UI::WindowsAndMessaging::SWP_NOSIZE;
+use windows::Win32::UI::WindowsAndMessaging::WS_EX_TOPMOST;
+
+use crate::error::WindowInspectorError;
 use crate::exist::is_window_exist;
+use crate::result::Result;
 
 /// 获取窗口置顶状态。
-pub fn get_window_top_most(hwnd: isize) -> Result<bool, Error> {
+pub fn get_window_top_most(hwnd: usize) -> Result<bool> {
     if !is_window_exist(hwnd) {
-        return Err(Error::WindowNotExist { hwnd });
+        return Err(WindowInspectorError::WindowNotExist {
+            hwnd: HWND(hwnd as *mut c_void),
+        });
     }
-    match unsafe { GetWindowLongW(HWND(hwnd), GWL_EXSTYLE) } {
-        0 => Err(Error::Win32ApiFailed {
-            api_name: "GetWindowLongW".to_string(),
-            error_code: unsafe { GetLastError() }.0.into(),
-            message: format!("hwnd: 0x{:X}", hwnd),
+    match unsafe { GetWindowLongW(HWND(hwnd as *mut c_void), GWL_EXSTYLE) } {
+        0 => Err(WindowInspectorError::GetWindowLongWFailed {
+            error_code: unsafe { GetLastError() }.0,
         }),
         n => Ok((n as u32 & WS_EX_TOPMOST.0) != 0),
     }
 }
 
 /// 设置窗口置顶状态。
-fn set_window_top_most_status(hwnd: isize, is_top_most: bool) -> Result<(), Error> {
+fn set_window_top_most_status(hwnd: usize, is_top_most: bool) -> Result<()> {
     if !is_window_exist(hwnd) {
-        return Err(Error::WindowNotExist { hwnd });
+        return Err(WindowInspectorError::WindowNotExist {
+            hwnd: HWND(hwnd as *mut c_void),
+        });
     }
     unsafe {
         if let Err(e) = SetWindowPos(
-            HWND(hwnd),
+            HWND(hwnd as *mut c_void),
             if is_top_most {
                 HWND_TOPMOST
             } else {
@@ -41,10 +51,9 @@ fn set_window_top_most_status(hwnd: isize, is_top_most: bool) -> Result<(), Erro
             0,
             SWP_NOMOVE | SWP_NOSIZE,
         ) {
-            return Err(Error::Win32ApiFailed {
-                api_name: "SetWindowPos".to_string(),
-                error_code: (e.code().0 as u32).into(),
-                message: format!("hwnd: 0x{:X}", hwnd),
+            return Err(WindowInspectorError::SetWindowPosFailed {
+                hwnd: HWND(hwnd as *mut c_void),
+                error_message: format!("{:?}", e),
             });
         }
     }
@@ -52,17 +61,17 @@ fn set_window_top_most_status(hwnd: isize, is_top_most: bool) -> Result<(), Erro
 }
 
 /// 设置窗口置顶。
-pub fn set_window_top_most(hwnd: isize) -> Result<(), Error> {
+pub fn set_window_top_most(hwnd: usize) -> Result<()> {
     set_window_top_most_status(hwnd, true)
 }
 
 /// 取消窗口置顶。
-pub fn cancel_window_top_most(hwnd: isize) -> Result<(), Error> {
+pub fn cancel_window_top_most(hwnd: usize) -> Result<()> {
     set_window_top_most_status(hwnd, false)
 }
 
 /// 切换窗口置顶状态。
-pub fn toggle_window_top_most(hwnd: isize) -> Result<(), Error> {
+pub fn toggle_window_top_most(hwnd: usize) -> Result<()> {
     let is_top_most = get_window_top_most(hwnd)?;
     if is_top_most {
         cancel_window_top_most(hwnd)

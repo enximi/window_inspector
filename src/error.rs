@@ -1,66 +1,50 @@
-use std::fmt::Display;
+use thiserror::Error;
+use windows::Win32::Foundation::HWND;
 
-#[derive(Debug, thiserror::Error)]
-pub enum Error {
-    #[error("window class and title cannot be both empty")]
+#[derive(Error, Debug)]
+pub enum WindowInspectorError {
+    #[error("窗口类名和标题都为空")]
     WindowClassTitleBothEmpty,
-    #[error("cannot find window, window class: {window_class}, window title: {window_title}")]
-    CannotFindWindow {
+    #[error(
+        "FindWindowExW失败，窗口类名：{window_class}，窗口标题：{window_title}，{error_message}"
+    )]
+    FindWindowExWFailed {
         window_class: String,
         window_title: String,
+        error_message: String,
     },
-    #[error("window 0x{hwnd:X} does not exist")]
-    WindowNotExist { hwnd: isize },
-    #[error("{api_name} failed, {error_code}, message: {message}")]
-    Win32ApiFailed {
-        api_name: String,
-        error_code: ErrorCode,
-        message: String,
+    #[error("GetWindowTextW失败，error_code: {error_code:#X}")]
+    GetClassNameWFailed { error_code: u32 },
+    #[error("SetForegroundWindow失败")]
+    SetForegroundWindowFailed,
+    #[error("GetWindowRect失败，{hwnd:?}，{error_message}")]
+    GetWindowRectFailed { hwnd: HWND, error_message: String },
+    #[error("DwmGetWindowAttribute失败，{hwnd:?}，{error_message}")]
+    DwmGetWindowAttributeFailed { hwnd: HWND, error_message: String },
+    #[error("ClientToScreen失败，{hwnd:?}")]
+    ClientToScreenFailed { hwnd: HWND },
+    #[error("GetClientRect失败，{hwnd:?}，{error_message}")]
+    GetClientRectFailed { hwnd: HWND, error_message: String },
+    #[error("MoveWindow失败，{hwnd:?}，{error_message}")]
+    MoveWindowFailed { hwnd: HWND, error_message: String },
+    #[error("GetWindowThreadProcessId失败，error_code: {error_code:#X}")]
+    GetWindowThreadProcessIdFailed { error_code: u32 },
+    #[error("OpenProcess失败，error_code: {error_message}")]
+    OpenProcessFailed {
+        process_id: u32,
+        error_message: String,
     },
-}
-
-#[derive(Debug)]
-pub struct ErrorCode {
-    pub code: Option<u32>,
-}
-
-impl ErrorCode {
-    pub fn new(code: Option<u32>) -> Self {
-        ErrorCode { code }
-    }
-
-    pub fn from_code(code: u32) -> Self {
-        ErrorCode { code: Some(code) }
-    }
-
-    pub fn none() -> Self {
-        ErrorCode { code: None }
-    }
-}
-
-impl Display for ErrorCode {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.code {
-            Some(code) => write!(f, "error code: 0x{:X}", code),
-            None => write!(f, "no error code"),
-        }
-    }
-}
-
-impl Default for ErrorCode {
-    fn default() -> Self {
-        Self { code: None }
-    }
-}
-
-impl From<u32> for ErrorCode {
-    fn from(code: u32) -> Self {
-        ErrorCode { code: Some(code) }
-    }
-}
-
-impl From<Option<u32>> for ErrorCode {
-    fn from(code: Option<u32>) -> Self {
-        ErrorCode { code }
-    }
+    #[error(
+        "QueryFullProcessImageNameW失败，process_id: {process_id}，error_code: {error_message}"
+    )]
+    QueryFullProcessImageNameWFailed {
+        process_id: u32,
+        error_message: String,
+    },
+    #[error("GetWindowLongW失败，error_code: {error_code:#X}")]
+    GetWindowLongWFailed { error_code: u32 },
+    #[error("SetWindowPos失败，{hwnd:?}，{error_message}")]
+    SetWindowPosFailed { hwnd: HWND, error_message: String },
+    #[error("窗口不存在，{hwnd:?}")]
+    WindowNotExist { hwnd: HWND },
 }
